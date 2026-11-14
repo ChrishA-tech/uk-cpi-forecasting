@@ -27,8 +27,9 @@ def to_markdown(res: dict) -> str:
     hs = bt["horizons"]
     src = "; ".join(f"{k}: {v}" for k, v in d["sources"].items()) or "cached data"
     lines = [f"**Data:** {d['start']} to {d['end']} ({d['n']} months). Sources: {src}.",
-             f"**Backtest:** {bt['n_origins']} rolling origins, forecasts evaluated from {bt['evaluated_from']} "
-             f"(includes the 2021-23 inflation surge), run {res['run_at'][:10]}.", "",
+             f"**Backtest:** {bt['n_origins']} rolling origins, forecasts evaluated from {bt['evaluated_from']}"
+             + (" (includes the 2021-23 inflation surge)" if bt["evaluated_from"] <= "2022-06" else "")
+             + f", run {res['run_at'][:10]}.", "",
              "Out-of-sample RMSE (percentage points of CPI inflation); in brackets: relative to the naive "
              "no-change forecast (<1 = better). ✓ = significantly better than naive (Diebold-Mariano p<0.05), "
              "✗ = significantly worse.", "",
