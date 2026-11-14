@@ -1,5 +1,5 @@
 {
   "cpi_yoy": "ONS D7G7 (CSV)",
   "bank_rate": "Bank of England IUMABEDR",
-  "brent_usd": "IMF PCPS POILBRE via DBnomics (same series as FRED POILBREUSDM)"
+  "brent_usd": "US EIA Europe Brent Spot FOB (RBRTE)"
 }

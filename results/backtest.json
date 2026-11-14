@@ -1,17 +1,17 @@
 {
-  "run_at": "2026-11-14T15:46:59+00:00",
+  "run_at": "2026-11-14T16:51:55+00:00",
   "data": {
-    "n": 337,
+    "n": 352,
     "start": "1997-06",
-    "end": "2025-06",
+    "end": "2026-09",
     "sources": {
       "cpi_yoy": "ONS D7G7 (CSV)",
       "bank_rate": "Bank of England IUMABEDR",
-      "brent_usd": "IMF PCPS POILBRE via DBnomics (same series as FRED POILBREUSDM)"
+      "brent_usd": "US EIA Europe Brent Spot FOB (RBRTE)"
     }
   },
   "backtest": {
-    "n_obs": 337,
+    "n_obs": 352,
     "n_origins": 60,
     "horizons": [
       1,
@@ -21,108 +21,108 @@
     ],
     "sample": [
       "1997-06",
-      "2025-06"
+      "2026-09"
     ],
-    "evaluated_from": "2020-07",
+    "evaluated_from": "2021-10",
     "models": {
       "Naive (no change)": {
         "1": {
           "n": 60,
-          "rmse": 0.654,
-          "mae": 0.48
+          "rmse": 0.613,
+          "mae": 0.423
         },
         "3": {
           "n": 58,
-          "rmse": 1.371,
-          "mae": 1.074
+          "rmse": 1.277,
+          "mae": 0.971
         },
         "6": {
           "n": 55,
-          "rmse": 2.545,
-          "mae": 2.131
+          "rmse": 2.31,
+          "mae": 1.789
         },
         "12": {
           "n": 49,
-          "rmse": 4.833,
-          "mae": 4.239
+          "rmse": 3.839,
+          "mae": 2.984
         }
       },
       "AR (CPI lags)": {
         "1": {
           "n": 60,
-          "rmse": 0.645,
-          "mae": 0.496,
-          "rel_rmse_vs_naive": 0.987,
-          "dm_stat": -0.567,
-          "p_value": 0.5729
+          "rmse": 0.601,
+          "mae": 0.441,
+          "rel_rmse_vs_naive": 0.981,
+          "dm_stat": -0.733,
+          "p_value": 0.4664
         },
         "3": {
           "n": 58,
-          "rmse": 1.25,
-          "mae": 0.955,
-          "rel_rmse_vs_naive": 0.912,
-          "dm_stat": -1.318,
-          "p_value": 0.1928
+          "rmse": 1.163,
+          "mae": 0.859,
+          "rel_rmse_vs_naive": 0.91,
+          "dm_stat": -1.15,
+          "p_value": 0.2548
         },
         "6": {
           "n": 55,
-          "rmse": 2.332,
-          "mae": 1.893,
+          "rmse": 2.115,
+          "mae": 1.592,
           "rel_rmse_vs_naive": 0.916,
-          "dm_stat": -0.624,
-          "p_value": 0.5353
+          "dm_stat": -0.518,
+          "p_value": 0.6067
         },
         "12": {
           "n": 49,
-          "rmse": 4.329,
-          "mae": 3.596,
-          "rel_rmse_vs_naive": 0.896,
-          "dm_stat": -0.519,
-          "p_value": 0.6059
+          "rmse": 3.285,
+          "mae": 2.44,
+          "rel_rmse_vs_naive": 0.856,
+          "dm_stat": -0.46,
+          "p_value": 0.6477
         }
       },
       "ARX (+ Bank Rate, Brent)": {
         "1": {
           "n": 60,
-          "rmse": 0.621,
-          "mae": 0.466,
-          "rel_rmse_vs_naive": 0.949,
-          "dm_stat": -1.742,
-          "p_value": 0.0867
+          "rmse": 0.586,
+          "mae": 0.425,
+          "rel_rmse_vs_naive": 0.957,
+          "dm_stat": -1.368,
+          "p_value": 0.1765
         },
         "3": {
           "n": 58,
-          "rmse": 1.209,
-          "mae": 0.925,
-          "rel_rmse_vs_naive": 0.881,
-          "dm_stat": -1.369,
-          "p_value": 0.1763
+          "rmse": 1.14,
+          "mae": 0.854,
+          "rel_rmse_vs_naive": 0.892,
+          "dm_stat": -1.078,
+          "p_value": 0.2856
         },
         "6": {
           "n": 55,
-          "rmse": 2.284,
-          "mae": 1.87,
-          "rel_rmse_vs_naive": 0.897,
-          "dm_stat": -0.6,
-          "p_value": 0.5509
+          "rmse": 2.099,
+          "mae": 1.577,
+          "rel_rmse_vs_naive": 0.908,
+          "dm_stat": -0.436,
+          "p_value": 0.6649
         },
         "12": {
           "n": 49,
-          "rmse": 4.192,
-          "mae": 3.352,
-          "rel_rmse_vs_naive": 0.867,
-          "dm_stat": -0.61,
-          "p_value": 0.545
+          "rmse": 3.217,
+          "mae": 2.345,
+          "rel_rmse_vs_naive": 0.838,
+          "dm_stat": -0.451,
+          "p_value": 0.6541
         }
       },
       "Hybrid RL (original, h=1)": {
         "1": {
           "n": 60,
-          "rmse": 0.66,
-          "mae": 0.486,
-          "rel_rmse_vs_naive": 1.01,
-          "dm_stat": 0.646,
-          "p_value": 0.5208
+          "rmse": 0.625,
+          "mae": 0.443,
+          "rel_rmse_vs_naive": 1.021,
+          "dm_stat": 1.343,
+          "p_value": 0.1843
         }
       }
     }
@@ -130,57 +130,57 @@
   "rl_agent": "linear policy-gradient (not PPO)",
   "forecast_now": {
     "1": {
-      "target_month": "2025-07",
-      "Naive (no change)": 3.6,
-      "AR (CPI lags)": 3.6,
-      "ARX (+ Bank Rate, Brent)": 3.48
+      "target_month": "2026-10",
+      "Naive (no change)": 3.5,
+      "AR (CPI lags)": 3.58,
+      "ARX (+ Bank Rate, Brent)": 3.6
     },
     "3": {
-      "target_month": "2025-09",
-      "Naive (no change)": 3.6,
-      "AR (CPI lags)": 3.56,
-      "ARX (+ Bank Rate, Brent)": 3.32
+      "target_month": "2026-12",
+      "Naive (no change)": 3.5,
+      "AR (CPI lags)": 3.74,
+      "ARX (+ Bank Rate, Brent)": 3.79
     },
     "6": {
-      "target_month": "2025-12",
-      "Naive (no change)": 3.6,
-      "AR (CPI lags)": 3.46,
-      "ARX (+ Bank Rate, Brent)": 3.05
+      "target_month": "2027-03",
+      "Naive (no change)": 3.5,
+      "AR (CPI lags)": 3.88,
+      "ARX (+ Bank Rate, Brent)": 4.01
     },
     "12": {
-      "target_month": "2026-06",
-      "Naive (no change)": 3.6,
-      "AR (CPI lags)": 3.09,
-      "ARX (+ Bank Rate, Brent)": 2.37
+      "target_month": "2027-09",
+      "Naive (no change)": 3.5,
+      "AR (CPI lags)": 3.61,
+      "ARX (+ Bank Rate, Brent)": 3.76
     }
   },
   "oil_scenario_+20pct": {
     "1": {
-      "cpi_change_pp": 0.045,
+      "cpi_change_pp": 0.033,
       "ci95": [
-        -0.001,
-        0.09
+        -0.008,
+        0.074
       ]
     },
     "3": {
-      "cpi_change_pp": 0.087,
+      "cpi_change_pp": 0.07,
       "ci95": [
-        -0.003,
-        0.177
+        -0.006,
+        0.147
       ]
     },
     "6": {
-      "cpi_change_pp": 0.196,
+      "cpi_change_pp": 0.169,
       "ci95": [
-        0.065,
-        0.327
+        0.046,
+        0.293
       ]
     },
     "12": {
-      "cpi_change_pp": 0.349,
+      "cpi_change_pp": 0.287,
       "ci95": [
-        0.086,
-        0.612
+        0.048,
+        0.527
       ]
     }
   }
