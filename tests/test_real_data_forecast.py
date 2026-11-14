@@ -164,3 +164,20 @@ def test_run_end_to_end_writes_results(monkeypatch, tmp_path):
     md = (tmp_path / "README.md").read_text()
     assert "Latest forecasts" in md and (tmp_path / "output" / "dashboard.html").exists()
     assert set(res["oil_scenario_+20pct"]) == {"1", "3", "6", "12"}
+
+
+def test_manual_files_are_used_first(monkeypatch, tmp_path):
+    (tmp_path / "IUMABEDR.csv").write_text((FX / "boe_iumabedr_sample.csv").read_text())
+    monkeypatch.setattr(data, "MANUAL_DIR", tmp_path)
+    df = data._manual("bank_rate")
+    assert len(df) == 3
+    with pytest.raises(FileNotFoundError):
+        data._manual("cpi_yoy")
+
+
+def test_download_failure_lists_manual_instructions(monkeypatch):
+    def boom():
+        raise OSError("dns")
+    monkeypatch.setitem(data.SOURCES, "bank_rate", [("BoE", boom)])
+    with pytest.raises(CPIForecastValidationError, match="save it as"):
+        data.fetch_series("bank_rate")

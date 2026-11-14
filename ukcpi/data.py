@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import time
 import urllib.request
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -26,7 +27,9 @@ import pandas as pd
 from .exceptions import CPIForecastValidationError
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-UA = {"User-Agent": "Mozilla/5.0 (ukcpi research script)"}
+UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+                    "(KHTML, like Gecko) Version/17.0 Safari/605.1.15"}
+MANUAL_DIR = DATA_DIR / "manual"
 
 ONS_CSV = "https://www.ons.gov.uk/generator?format=csv&uri=/economy/inflationandpriceindices/timeseries/d7g7/mm23"
 ONS_JSON = "https://api.ons.gov.uk/timeseries/d7g7/dataset/mm23/data"
@@ -37,9 +40,17 @@ MONTHS = {m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)}
 
 
-def _get(url: str, timeout: int = 30) -> str:
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-        return r.read().decode("utf-8-sig", errors="replace")
+def _get(url: str, timeout: int = 90, attempts: int = 3) -> str:
+    """GET with retries and back-off (official statistics sites can be slow to answer scripts)."""
+    last = None
+    for i in range(attempts):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+                return r.read().decode("utf-8-sig", errors="replace")
+        except Exception as e:
+            last = e
+            time.sleep(3 * (i + 1))
+    raise last
 
 
 # ------------------------------------------------------------------ parsers (unit-tested)
@@ -88,15 +99,38 @@ def parse_fred_csv(text: str, series: str) -> pd.DataFrame:
 
 
 # ------------------------------------------------------------------ sources with fallbacks
+MANUAL_FILES = {   # browser-downloaded copies, used before any network source
+    "cpi_yoy": ("D7G7.csv", ONS_CSV, lambda t: parse_ons_csv(t)),
+    "bank_rate": ("IUMABEDR.csv", BOE_CSV, lambda t: parse_boe_csv(t)),
+    "brent_usd": ("POILBREUSDM.csv", FRED_CSV.format(series="POILBREUSDM"), lambda t: parse_fred_csv(t, "POILBREUSDM")),
+}
+
+
+def _manual(name: str) -> pd.DataFrame:
+    fname, _, parser = MANUAL_FILES[name]
+    path = MANUAL_DIR / fname
+    if not path.exists():
+        raise FileNotFoundError(f"no manual file {path}")
+    return parser(path.read_text(encoding="utf-8-sig", errors="replace"))
+
+
+def manual_instructions() -> str:
+    return "\n".join(f"  {name}: open {url}\n      in a browser and save it as {MANUAL_DIR / f}"
+                     for name, (f, url, _) in MANUAL_FILES.items())
+
+
 SOURCES: Dict[str, List[Tuple[str, Callable[[], pd.DataFrame]]]] = {
-    "cpi_yoy": [("ONS D7G7 (CSV)", lambda: parse_ons_csv(_get(ONS_CSV))),
+    "cpi_yoy": [("manual file data/manual/D7G7.csv (ONS)", lambda: _manual("cpi_yoy")),
+                ("ONS D7G7 (CSV)", lambda: parse_ons_csv(_get(ONS_CSV))),
                 ("ONS D7G7 (API)", lambda: parse_ons_json(_get(ONS_JSON))),
                 ("FRED CPALTT01GBM659N (OECD)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="CPALTT01GBM659N")),
                                                                      "CPALTT01GBM659N"))],
-    "bank_rate": [("Bank of England IUMABEDR", lambda: parse_boe_csv(_get(BOE_CSV))),
+    "bank_rate": [("manual file data/manual/IUMABEDR.csv (Bank of England)", lambda: _manual("bank_rate")),
+                  ("Bank of England IUMABEDR", lambda: parse_boe_csv(_get(BOE_CSV))),
                   ("FRED IRSTCB01GBM156N (OECD)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="IRSTCB01GBM156N")),
                                                                        "IRSTCB01GBM156N"))],
-    "brent_usd": [("FRED POILBREUSDM (IMF)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="POILBREUSDM")),
+    "brent_usd": [("manual file data/manual/POILBREUSDM.csv (FRED)", lambda: _manual("brent_usd")),
+                  ("FRED POILBREUSDM (IMF)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="POILBREUSDM")),
                                                                   "POILBREUSDM"))],
 }
 
@@ -111,7 +145,8 @@ def fetch_series(name: str) -> Tuple[pd.DataFrame, str]:
             errors.append(f"{label}: only {len(df)} rows")
         except Exception as e:  # network / format errors -> try the next source
             errors.append(f"{label}: {type(e).__name__}: {e}")
-    raise CPIForecastValidationError(f"Could not download {name}. Tried: " + " | ".join(errors))
+    raise CPIForecastValidationError(f"Could not download {name}. Tried: " + " | ".join(errors)
+                                     + "\nManual option (download in a browser, then re-run):\n" + manual_instructions())
 
 
 def load_macro(refresh: bool = False, start: str = "1997-06-01", data_dir: Path = DATA_DIR) -> pd.DataFrame:
