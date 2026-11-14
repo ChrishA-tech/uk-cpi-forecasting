@@ -181,3 +181,13 @@ def test_download_failure_lists_manual_instructions(monkeypatch):
     monkeypatch.setitem(data.SOURCES, "bank_rate", [("BoE", boom)])
     with pytest.raises(CPIForecastValidationError, match="save it as"):
         data.fetch_series("bank_rate")
+
+
+def test_parse_dbnomics_json():
+    df = data.parse_dbnomics_json((FX / "dbnomics_brent_sample.json").read_text())
+    assert list(df["value"]) == [21.25, 19.81, 18.39]
+
+
+def test_brent_order_is_manual_then_dbnomics_then_fred():
+    labels = [l for l, _ in data.SOURCES["brent_usd"]]
+    assert labels[0].startswith("manual") and "DBnomics" in labels[1] and "FRED" in labels[2]

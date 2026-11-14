@@ -36,6 +36,9 @@ ONS_JSON = "https://api.ons.gov.uk/timeseries/d7g7/dataset/mm23/data"
 BOE_CSV = ("https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp?csv.x=yes"
            "&Datefrom=01/Jan/1989&Dateto=now&SeriesCodes=IUMABEDR&CSVF=TN&UsingCodes=Y&VPD=Y&VFD=N")
 FRED_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+# DBnomics mirrors IMF PCPS: the same Brent series FRED republishes as POILBREUSDM.
+DBNOMICS_BRENT = ("https://api.db.nomics.world/v22/series/IMF/PCPS/M.W00.POILBRE.USD"
+                  "?observations=1&format=json")
 MONTHS = {m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)}
 
@@ -98,6 +101,20 @@ def parse_fred_csv(text: str, series: str) -> pd.DataFrame:
     return out.dropna()
 
 
+def parse_dbnomics_json(text: str) -> pd.DataFrame:
+    """DBnomics v22 series response: series.docs[0].period / .value ('NA' = missing)."""
+    try:
+        doc = json.loads(text)["series"]["docs"][0]
+        periods, values = doc["period"], doc["value"]
+    except (ValueError, KeyError, IndexError, TypeError) as e:
+        raise CPIForecastValidationError(f"Unexpected DBnomics response ({type(e).__name__}: {e})")
+    if len(periods) != len(values):
+        raise CPIForecastValidationError("DBnomics periods and values differ in length.")
+    out = pd.DataFrame({"date": pd.to_datetime(pd.Series(periods).astype(str).str[:7], format="%Y-%m"),
+                        "value": pd.to_numeric(pd.Series(values).replace("NA", None), errors="coerce")})
+    return out.dropna()
+
+
 # ------------------------------------------------------------------ sources with fallbacks
 MANUAL_FILES = {   # browser-downloaded copies, used before any network source
     "cpi_yoy": ("D7G7.csv", ONS_CSV, lambda t: parse_ons_csv(t)),
@@ -130,6 +147,8 @@ SOURCES: Dict[str, List[Tuple[str, Callable[[], pd.DataFrame]]]] = {
                   ("FRED IRSTCB01GBM156N (OECD)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="IRSTCB01GBM156N")),
                                                                        "IRSTCB01GBM156N"))],
     "brent_usd": [("manual file data/manual/POILBREUSDM.csv (FRED)", lambda: _manual("brent_usd")),
+                  ("IMF PCPS POILBRE via DBnomics (same series as FRED POILBREUSDM)",
+                   lambda: parse_dbnomics_json(_get(DBNOMICS_BRENT, timeout=60, attempts=2))),
                   ("FRED POILBREUSDM (IMF)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="POILBREUSDM")),
                                                                   "POILBREUSDM"))],
 }
