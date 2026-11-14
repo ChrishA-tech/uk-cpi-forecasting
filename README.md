@@ -40,7 +40,7 @@ Hybrid RL agent: linear policy-gradient (not PPO); MPC sentiment and output gap 
 
 | Part | File | |
 |---|---|---|
-| Data | `ukcpi/data.py` | ONS D7G7 CPI annual rate, BoE IUMABEDR Bank Rate, FRED POILBREUSDM Brent; fallbacks (ONS API, FRED/OECD series); validation (gaps, implausible values); cached in `data/` with the source used for each series |
+| Data | `ukcpi/data.py` | ONS D7G7 CPI annual rate, BoE IUMABEDR Bank Rate, US EIA RBRTE Brent; fallbacks (ONS API, FRED/OECD series, FRED/DBnomics IMF Brent); sources more than 9 months out of date are skipped and a stale cache is refreshed automatically; validation (gaps, implausible values); cached in `data/` with the source used for each series |
 | Forecasting | `ukcpi/forecast.py` | Direct h-step models: naive, AR(CPI lags), ARX(+ Bank Rate, Brent 12m and 3m log-changes); rolling-origin backtest; Diebold-Mariano; HAC regression; **oil scenario** ("Brent +20% → CPI inflation +x pp") |
 | Hybrid RL | `ukcpi/rl_env.py`, `ukcpi/trainer.py` | The original Gymnasium environment and agent (Stable-Baselines3 PPO if installed, else a lightweight linear policy-gradient agent), now re-trained at every backtest origin on real data |
 | MPC sentiment | `ukcpi/finbert_sentiment.py` | ProsusAI/FinBERT when available, else a keyword lexicon; output states which backend was used |
@@ -63,7 +63,7 @@ benchmark. Re-running it showed the opposite: on its own synthetic data it was *
 forecast for every seed tested** (e.g. RMSE 0.287 vs 0.227), and more training made it worse. The tests only
 checked `RMSE > 0`. Other issues and fixes:
 
-- **All data were synthetic.** Results now use real ONS, Bank of England and FRED series.
+- **All data were synthetic.** Results now use real ONS, Bank of England and EIA/IMF series.
 - **The API's "PPO policy" was a hard-coded formula.** The API now serves the fitted AR/ARX models.
 - **The fallback "PPO" agent was not PPO** (no clipping or value function); it is now named a linear
   policy-gradient agent, and results state which agent was used.
@@ -74,4 +74,4 @@ checked `RMSE > 0`. Other issues and fixes:
 The hybrid RL model is kept and evaluated as one of the candidates; the README reports whatever the backtest
 shows for it.
 
-Data: ONS (Open Government Licence v3.0), Bank of England Statistical Interactive Database, IMF via FRED.
+Data: ONS (Open Government Licence v3.0), Bank of England Statistical Interactive Database, U.S. Energy Information Administration (Brent RBRTE; fallback IMF via FRED or DBnomics).

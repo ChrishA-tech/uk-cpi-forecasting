@@ -43,13 +43,18 @@ MONTHS = {m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)}
 
 
-def _get(url: str, timeout: int = 90, attempts: int = 3) -> str:
+EIA_BRENT = "https://www.eia.gov/dnav/pet/hist_xls/RBRTEm.xls"
+MAX_STALE_DAYS = 270   # a source ending longer ago than this is used only if nothing fresher downloads
+
+
+def _get(url: str, timeout: int = 90, attempts: int = 3, binary: bool = False):
     """GET with retries and back-off (official statistics sites can be slow to answer scripts)."""
     last = None
     for i in range(attempts):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-                return r.read().decode("utf-8-sig", errors="replace")
+                body = r.read()
+                return body if binary else body.decode("utf-8-sig", errors="replace")
         except Exception as e:
             last = e
             time.sleep(3 * (i + 1))
@@ -115,6 +120,30 @@ def parse_dbnomics_json(text: str) -> pd.DataFrame:
     return out.dropna()
 
 
+def parse_eia_xls(content: bytes) -> pd.DataFrame:
+    """EIA history workbook (RBRTEm.xls): on each sheet keep rows of (date, number); use the largest sheet."""
+    try:
+        sheets = pd.read_excel(io.BytesIO(content), sheet_name=None, header=None, engine="xlrd")
+    except Exception as e:
+        raise CPIForecastValidationError(f"Could not read EIA workbook ({type(e).__name__}: {e})")
+    best = None
+    for sh in sheets.values():
+        if sh.shape[1] < 2:
+            continue
+        d = pd.to_datetime(sh.iloc[:, 0], errors="coerce")
+        v = pd.to_numeric(sh.iloc[:, 1], errors="coerce")
+        ok = d.notna() & v.notna()
+        if ok.sum() and (best is None or ok.sum() > len(best)):
+            best = pd.DataFrame({"date": d[ok].dt.to_period("M").dt.to_timestamp().values, "value": v[ok].values})
+    if best is None:
+        raise CPIForecastValidationError("EIA workbook has no usable series.")
+    return best
+
+
+def is_stale(df: pd.DataFrame, max_days: int = MAX_STALE_DAYS) -> bool:
+    return (pd.Timestamp.today().normalize() - pd.Timestamp(df["date"].max())).days > max_days
+
+
 # ------------------------------------------------------------------ sources with fallbacks
 MANUAL_FILES = {   # browser-downloaded copies, used before any network source
     "cpi_yoy": ("D7G7.csv", ONS_CSV, lambda t: parse_ons_csv(t)),
@@ -147,23 +176,34 @@ SOURCES: Dict[str, List[Tuple[str, Callable[[], pd.DataFrame]]]] = {
                   ("FRED IRSTCB01GBM156N (OECD)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="IRSTCB01GBM156N")),
                                                                        "IRSTCB01GBM156N"))],
     "brent_usd": [("manual file data/manual/POILBREUSDM.csv (FRED)", lambda: _manual("brent_usd")),
+                  ("US EIA Europe Brent Spot FOB (RBRTE)",
+                   lambda: parse_eia_xls(_get(EIA_BRENT, timeout=60, attempts=2, binary=True))),
+                  ("FRED POILBREUSDM (IMF)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="POILBREUSDM"),
+                                                                       timeout=60, attempts=2), "POILBREUSDM")),
                   ("IMF PCPS POILBRE via DBnomics (same series as FRED POILBREUSDM)",
-                   lambda: parse_dbnomics_json(_get(DBNOMICS_BRENT, timeout=60, attempts=2))),
-                  ("FRED POILBREUSDM (IMF)", lambda: parse_fred_csv(_get(FRED_CSV.format(series="POILBREUSDM")),
-                                                                  "POILBREUSDM"))],
+                   lambda: parse_dbnomics_json(_get(DBNOMICS_BRENT, timeout=60, attempts=2)))],
 }
 
 
 def fetch_series(name: str) -> Tuple[pd.DataFrame, str]:
-    errors = []
+    errors, stale = [], []
     for label, fn in SOURCES[name]:
         try:
             df = fn()
-            if len(df) > 24:
+            if len(df) <= 24:
+                errors.append(f"{label}: only {len(df)} rows")
+            elif is_stale(df):
+                stale.append((df, label))
+                errors.append(f"{label}: stale, ends {df['date'].max():%Y-%m}")
+            else:
                 return df, label
-            errors.append(f"{label}: only {len(df)} rows")
         except Exception as e:  # network / format errors -> try the next source
             errors.append(f"{label}: {type(e).__name__}: {e}")
+    if stale:
+        df, label = max(stale, key=lambda t: t[0]["date"].max())
+        print(f"!! {name}: using the freshest available data ({label}, ends {df['date'].max():%Y-%m}). "
+              + " | ".join(errors))
+        return df, label
     raise CPIForecastValidationError(f"Could not download {name}. Tried: " + " | ".join(errors)
                                      + "\nManual option (download in a browser, then re-run):\n" + manual_instructions())
 
@@ -175,6 +215,15 @@ def load_macro(refresh: bool = False, start: str = "1997-06-01", data_dir: Path 
     """
     cache = data_dir / "uk_macro_monthly.csv"
     meta = data_dir / "sources.json"
+    if cache.exists() and not refresh and data_dir == DATA_DIR:
+        cached = pd.read_csv(cache, parse_dates=["date"])
+        common_end = cached.dropna()["date"].max()
+        if pd.isna(common_end) or (pd.Timestamp.today().normalize() - common_end).days > MAX_STALE_DAYS:
+            print(f"Cached UK data ends {common_end:%Y-%m}; trying to update it...")
+            try:
+                return load_macro(refresh=True, start=start, data_dir=data_dir)
+            except Exception as e:
+                print(f"!! Update failed ({type(e).__name__}: {e}); using the cached data.")
     if refresh or not cache.exists():
         frames, sources = [], {}
         for name in SOURCES:

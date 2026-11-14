@@ -3,7 +3,7 @@ name = "ukcpi"
 version = "2.0.0"
 description = "UK CPI inflation forecasting on real ONS / Bank of England / Brent data with rolling backtests"
 requires-python = ">=3.9"
-dependencies = ["numpy>=1.24", "pandas>=2.0", "scipy>=1.10", "statsmodels>=0.14", "plotly>=5.18",
+dependencies = ["numpy>=1.24", "pandas>=2.0", "xlrd>=2.0", "scipy>=1.10", "statsmodels>=0.14", "plotly>=5.18",
                 "fastapi>=0.110", "pydantic>=2.5", "gymnasium>=0.29"]
 
 [project.optional-dependencies]

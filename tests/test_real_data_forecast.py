@@ -188,6 +188,21 @@ def test_parse_dbnomics_json():
     assert list(df["value"]) == [21.25, 19.81, 18.39]
 
 
-def test_brent_order_is_manual_then_dbnomics_then_fred():
+def test_brent_order_is_manual_eia_fred_dbnomics():
     labels = [l for l, _ in data.SOURCES["brent_usd"]]
-    assert labels[0].startswith("manual") and "DBnomics" in labels[1] and "FRED" in labels[2]
+    assert labels[0].startswith("manual") and "EIA" in labels[1] and "FRED" in labels[2] and "DBnomics" in labels[3]
+
+
+def test_parse_eia_xls():
+    df = data.parse_eia_xls((FX / "eia_rbrtem_sample.xls").read_bytes())
+    assert len(df) == 26 and df["value"].iloc[0] == 18.58 and str(df["date"].iloc[0].date()) == "1987-05-01"
+
+
+def test_fetch_series_prefers_fresh_over_stale(monkeypatch):
+    old = pd.DataFrame({"date": pd.date_range("2000-01-01", periods=30, freq="MS"), "value": 1.0})
+    new = pd.DataFrame({"date": pd.date_range(end=pd.Timestamp.today().normalize().replace(day=1),
+                                              periods=30, freq="MS"), "value": 2.0})
+    monkeypatch.setitem(data.SOURCES, "bank_rate", [("old", lambda: old), ("new", lambda: new)])
+    assert data.fetch_series("bank_rate")[1] == "new"
+    monkeypatch.setitem(data.SOURCES, "bank_rate", [("old", lambda: old)])
+    assert data.fetch_series("bank_rate")[1] == "old"
