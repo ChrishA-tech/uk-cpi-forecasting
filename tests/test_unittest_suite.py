@@ -1,8 +1,8 @@
 import unittest
-from src.finbert_sentiment import FinBERTSentimentAnalyzer
-from src.rl_env import UKCPIForecastEnv, generate_uk_cpi_macro_dataset
-from src.trainer import train_and_evaluate_hybrid_ppo
-from src.exceptions import CPIForecastValidationError
+from ukcpi.finbert_sentiment import FinBERTSentimentAnalyzer
+from ukcpi.rl_env import UKCPIForecastEnv, generate_uk_cpi_macro_dataset
+from ukcpi.trainer import train_and_evaluate_hybrid_ppo
+from ukcpi.exceptions import CPIForecastValidationError
 
 
 class TestHybridRLFinBERT(unittest.TestCase):

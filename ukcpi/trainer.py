@@ -9,11 +9,14 @@ except ImportError:
     HAS_SB3 = False
 
 
-class _LightweightClippedPPOAgent:
+class LinearPolicyGradientAgent:
     """
-    Clipped policy-gradient PPO agent matching the Stable-Baselines3 `.learn()` and `.predict()`
-    API when `stable-baselines3` is not installed in minimal test containers.
+    Lightweight linear policy (tanh(W obs + b)) trained by gradient steps on the forecast
+    error, with the Stable-Baselines3 `.learn()` / `.predict()` interface. Used when
+    stable-baselines3 is not installed. NOTE: this is NOT PPO (no clipping, no value
+    function); results from it must be labelled accordingly.
     """
+    kind = "linear policy-gradient (not PPO)"
     def __init__(self, env: UKCPIForecastEnv, learning_rate: float = 3e-3, seed: int = 42):
         self.env = env
         self.lr = learning_rate
@@ -40,6 +43,21 @@ class _LightweightClippedPPOAgent:
         return self
 
 
+def make_agent(env: UKCPIForecastEnv, seed: int = 42):
+    """Stable-Baselines3 PPO if installed, else the lightweight linear agent."""
+    if HAS_SB3:
+        agent = PPO(policy="MlpPolicy", env=env, learning_rate=3e-4, n_steps=64, batch_size=32,
+                    n_epochs=5, seed=seed, verbose=0)
+        agent.kind = "PPO (stable-baselines3)"
+        return agent
+    return LinearPolicyGradientAgent(env=env, seed=seed)
+
+
+def agent_kind() -> str:
+    return "PPO (stable-baselines3)" if HAS_SB3 else LinearPolicyGradientAgent.kind
+
+
+# Kept for backward compatibility (original synthetic-data experiment)
 def train_and_evaluate_hybrid_ppo(total_timesteps: int = 1024, seed: int = 42) -> Dict[str, Any]:
     """
     Trains a Stable-Baselines3 PPO agent on the UK CPI + FinBERT environment
@@ -63,7 +81,7 @@ def train_and_evaluate_hybrid_ppo(total_timesteps: int = 1024, seed: int = 42) -
             verbose=0,
         )
     else:
-        model = _LightweightClippedPPOAgent(env=train_env, seed=seed)
+        model = LinearPolicyGradientAgent(env=train_env, seed=seed)
 
     model.learn(total_timesteps=total_timesteps)
 

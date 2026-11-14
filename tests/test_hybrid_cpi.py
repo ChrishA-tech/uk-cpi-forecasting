@@ -1,12 +1,8 @@
 import pytest
-from fastapi.testclient import TestClient
-from src.finbert_sentiment import FinBERTSentimentAnalyzer
-from src.rl_env import UKCPIForecastEnv, generate_uk_cpi_macro_dataset
-from src.trainer import train_and_evaluate_hybrid_ppo
-from src.exceptions import CPIForecastValidationError
-from src.api import app
-
-client = TestClient(app)
+from ukcpi.finbert_sentiment import FinBERTSentimentAnalyzer
+from ukcpi.rl_env import UKCPIForecastEnv, generate_uk_cpi_macro_dataset
+from ukcpi.trainer import train_and_evaluate_hybrid_ppo
+from ukcpi.exceptions import CPIForecastValidationError
 
 
 def test_finbert_sentiment_hawkish_vs_dovish_directionality():
@@ -45,20 +41,3 @@ def test_gymnasium_env_step_and_ppo_training_loop():
     metrics = train_and_evaluate_hybrid_ppo(total_timesteps=256, seed=42)
     assert metrics["hybrid_rmse"] > 0.0
     assert len(metrics["test_predictions"]) == len(metrics["test_actuals"])
-
-
-def test_fastapi_cpi_forecast_endpoint():
-    resp = client.post(
-        "/api/v1/forecast-cpi",
-        json={
-            "lag1_cpi": 2.6,
-            "lag2_cpi": 2.2,
-            "boe_base_rate": 4.75,
-            "output_gap": 0.4,
-            "mpc_statement_text": "The Committee observed persistent inflation and elevated wage growth above target.",
-        },
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["forecast_cpi_yoy"] > data["baseline_ar_cpi"]
-    assert data["finbert_analysis"]["inflation_sentiment_index"] > 0

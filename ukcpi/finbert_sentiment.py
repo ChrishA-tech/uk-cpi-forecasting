@@ -9,12 +9,16 @@ class FinBERTOutput(BaseModel):
     negative_prob: float = Field(..., ge=0.0, le=1.0, description="Disinflationary / contractionary probability")
     neutral_prob: float = Field(..., ge=0.0, le=1.0, description="Neutral monetary stance probability")
     inflation_sentiment_index: float = Field(..., ge=-1.0, le=1.0, description="Net inflation pressure score (pos - neg)")
+    backend: str = Field(default="lexicon fallback (not FinBERT)", description="Which scorer produced this output")
 
 
 class FinBERTSentimentAnalyzer:
     """
-    Wraps ProsusAI/finbert for MPC statement sentiment extraction, with a deterministic
-    offline domain-calibrated fallback so unit tests and air-gapped environments never fail on network I/O.
+    Wraps ProsusAI/finbert for MPC statement sentiment extraction. If the model cannot be
+    loaded (no `transformers`, no network), a keyword-lexicon fallback is used instead; it is
+    NOT FinBERT, and every output reports which backend produced it (`backend`).
+    Note: FinBERT's positive/negative labels are about financial sentiment, which is only a
+    proxy for hawkish/dovish inflation pressure.
     """
     HAWKISH_INFLATIONARY_TERMS = [
         "persistent inflation", "upward pressure", "tightening", "elevated wage growth",
@@ -42,7 +46,9 @@ class FinBERTSentimentAnalyzer:
 
         clean = text.strip()
         if self._pipeline is not None:
-            preds = self._pipeline(clean[:512])[0]
+            preds = self._pipeline(clean[:512])
+            if preds and isinstance(preds[0], list):      # older transformers: [[{label, score}, ...]]
+                preds = preds[0]
             scores: Dict[str, float] = {item["label"].lower(): float(item["score"]) for item in preds}
             pos = scores.get("positive", 0.33)
             neg = scores.get("negative", 0.33)
@@ -59,6 +65,7 @@ class FinBERTSentimentAnalyzer:
 
         net_index = max(-1.0, min(1.0, round(pos - neg, 4)))
         return FinBERTOutput(
+            backend=self.model_name if self._pipeline is not None else "lexicon fallback (not FinBERT)",
             positive_prob=round(pos, 4),
             negative_prob=round(neg, 4),
             neutral_prob=round(neu, 4),

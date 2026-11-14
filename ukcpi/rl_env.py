@@ -24,7 +24,8 @@ except ImportError:
 
 def generate_uk_cpi_macro_dataset(n_months: int = 120, seed: int = 42) -> pd.DataFrame:
     """
-    Generates a realistic monthly UK macroeconomic dataset (CPI YoY %, BoE Base Rate %,
+    SYNTHETIC data (demo / unit tests only - real results use ukcpi.data.load_macro).
+    Generates a monthly UK-like macroeconomic dataset (CPI YoY %, BoE Base Rate %,
     Output Gap %, and FinBERT MPC Sentiment Index) calibrated to ONS & Bank of England regimes.
     """
     if n_months < 24:
@@ -104,17 +105,21 @@ class UKCPIForecastEnv(gym.Env):
         self.current_step = 2
         return self._get_obs(), {}
 
-    def step(self, action: np.ndarray):
+    @staticmethod
+    def predict_from_obs(obs: np.ndarray, action: np.ndarray) -> float:
+        """Forecast implied by an observation and a policy action (shared by step() and backtests)."""
         action = np.clip(np.asarray(action, dtype=np.float32), -1.0, 1.0)
-        obs = self._get_obs()
-        lag1_cpi, lag2_cpi, boe_rate, output_gap, sentiment = obs
-
+        lag1_cpi, lag2_cpi, boe_rate, output_gap, sentiment = [float(v) for v in obs]
         ar_momentum = 0.85 * lag1_cpi + 0.15 * lag2_cpi
         rl_drift_adj = 0.50 * float(action[0])
         sentiment_impact = (0.35 + 0.35 * float(action[1])) * sentiment
         macro_impact = 0.05 * output_gap - 0.04 * (boe_rate - 2.0)
+        return float(ar_momentum + rl_drift_adj + sentiment_impact + macro_impact)
 
-        y_pred = float(ar_momentum + rl_drift_adj + sentiment_impact + macro_impact)
+    def step(self, action: np.ndarray):
+        action = np.clip(np.asarray(action, dtype=np.float32), -1.0, 1.0)
+        obs = self._get_obs()
+        y_pred = self.predict_from_obs(obs, action)
         y_true = float(self.df.iloc[self.current_step]["cpi_yoy"])
 
         error = y_true - y_pred

@@ -1,0 +1,22 @@
+[project]
+name = "ukcpi"
+version = "2.0.0"
+description = "UK CPI inflation forecasting on real ONS / Bank of England / Brent data with rolling backtests"
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.24", "pandas>=2.0", "scipy>=1.10", "statsmodels>=0.14", "plotly>=5.18",
+                "fastapi>=0.110", "pydantic>=2.5", "gymnasium>=0.29"]
+
+[project.optional-dependencies]
+rl = ["stable-baselines3>=2.3"]
+finbert = ["transformers>=4.40", "torch>=2.2"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ukcpi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
